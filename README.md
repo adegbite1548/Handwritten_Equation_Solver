@@ -1,1 +1,0 @@
-# Handwritten_Equation_Solver
