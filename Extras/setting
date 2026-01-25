@@ -1,0 +1,7 @@
+set KMP_DUPLICATE_LIB_OK=TRUE
+
+conda env create -f torchcuda.yml
+conda env update -f torchcuda.yml
+conda env remove -n torchcuda
+
+DenseNet-121

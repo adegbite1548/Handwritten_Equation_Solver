@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 import numpy as np
 import cv2, re
+import os
 from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
@@ -35,11 +36,17 @@ def read_inkml(path):
         if points:
             strokes.append(np.array(points, dtype=np.float32)) # convert points for that trace into numpy array and add it to strokes
     
-    ann = root.find(".//ink:annotation[@type='label']", ink_namespace)
+    ann = root.find(".//ink:annotation[@type='normalizedLabel']", ink_namespace)
+
+    
+
     if ann is None:
         ann = root.find(".//ink:annotation[@type='truth']", ink_namespace) \
               or root.find(".//annotation[@type='label']") \
-              or root.find(".//annotation[@type='truth']")
+              or root.find(".//annotation[@type='truth']") \
+              or root.find(".//ink:annotation[@type='label']", ink_namespace)
+        
+    
     label = ann.text.strip() if ann is not None and ann.text else ""
     return strokes, label
 
@@ -104,6 +111,8 @@ def preprocess_data(root,out):
             data.append({"path": f"{p.stem}.png", "label": f"{label}"}) # create mapping of image to ground truth
         except Exception as e:
              tqdm.write(f"[WARN] {p.name}: {e}") 
+
+    
 
     pd.DataFrame(data).to_csv(out / "data" / "data.csv", index=False)
     print(f"Done, {len(data)} files processed.")
