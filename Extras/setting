@@ -4,4 +4,7 @@ conda env create -f torchcuda.yml
 conda env update -f torchcuda.yml
 conda env remove -n torchcuda
 
+cd Documents/3rd_Year/cs310/Handwritten_Equation_solver/HMER
+
+
 DenseNet-121
