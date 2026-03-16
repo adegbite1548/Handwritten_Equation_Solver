@@ -7,13 +7,14 @@ import random
 from torch.utils.data import DataLoader, Subset
 import torchvision.transforms as transforms
 from Watcher import DenseNetEncoder
-from Parser import WAPDecoder
+from Parser import WAPDecoderCAN
+from Weakly_Supervised_Counter import WSCM
 from MathDataset import MathDataset
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn.functional as F 
 
-def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h, feature_w):
+def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h, feature_w,initial_counts=None, idx_to_token=None):
     # 1. Convert the PyTorch image back to a format Matplotlib can display
     # Un-normalize it (approximate for quick viewing)
     image = image_tensor.cpu().squeeze(0).permute(1, 2, 0).numpy()
@@ -27,6 +28,21 @@ def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h,
 
     # Make the figure very wide (e.g., 12 inches) and give each row 2 inches of height
     fig = plt.figure(figsize=(12, 2 * rows))
+
+    if initial_counts is not None and idx_to_token is not None:
+        inventory = []
+        # Loop through the vocabulary to find counts >= 0.5 (rounds to 1 or more)
+        for idx, count_tensor in enumerate(initial_counts):
+            count = count_tensor.item()
+            if idx > 3 and count >= 0.5: # Skip special tokens (0,1,2,3)
+                symbol = idx_to_token.get(idx, '<UNK>')
+                inventory.append(f"{symbol}: {round(count)}")
+        
+        inventory_str = "Predicted WSCM Inventory | " + ", ".join(inventory)
+        if not inventory:
+            inventory_str = "Predicted WSCM Inventory | [None Detected]"
+            
+        fig.suptitle(inventory_str, fontsize=16, fontweight='bold', color='darkblue')
     
     for i in range(num_tokens):
         ax = fig.add_subplot(rows, cols, i + 1)
@@ -67,27 +83,30 @@ def run_pulse_check(checkpoint_path, num_samples=100):
     # --- 2. Load the Vocabulary and Reverse It ---
     with open('vocab.json', 'r') as f:
         vocab_dict = json.load(f)
-    # Create a reverse dictionary mapping ID -> String (e.g., 75 -> '\alpha')
     idx_to_token = {v: k for k, v in vocab_dict.items()}
     
     # --- 3. Initialize Models ---
     VOCAB_SIZE = 231     
     EMBED_DIM = 256       
     DECODER_DIM = 512     
+    ENCODER_DIM = 1024
     
     encoder = DenseNetEncoder().to(device)
-    decoder = WAPDecoder(embed_dim=EMBED_DIM, decoder_dim=DECODER_DIM, vocab_size=VOCAB_SIZE).to(device)
+    wscm = WSCM(encoder_dim=ENCODER_DIM, vocab_size=VOCAB_SIZE).to(device) # NEW
+    decoder = WAPDecoderCAN(embed_dim=EMBED_DIM, decoder_dim=DECODER_DIM, vocab_size=VOCAB_SIZE).to(device) # NEW
     
     # Load the weights
     checkpoint = torch.load(checkpoint_path, map_location=device)
     encoder.load_state_dict(checkpoint['encoder_state_dict'])
+    wscm.load_state_dict(checkpoint['wscm_state_dict']) # NEW
     decoder.load_state_dict(checkpoint['decoder_state_dict'])
     
     encoder.eval()
+    wscm.eval() # NEW
     decoder.eval()
 
-    # --- 4. Build the 100-Image Pulse Check Loader ---
-    print("Loading 100 random validation images...")
+    # --- 4. Build the Pulse Check Loader ---
+    print("Loading random validation images...")
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -103,7 +122,6 @@ def run_pulse_check(checkpoint_path, num_samples=100):
     
     random_indices = random.sample(range(len(val_dataset)), num_samples)
     pulse_subset = Subset(val_dataset, random_indices)
-    
     val_loader = DataLoader(pulse_subset, batch_size=1, shuffle=False)
     
     # --- 5. The Inference Loop ---
@@ -116,7 +134,13 @@ def run_pulse_check(checkpoint_path, num_samples=100):
             image = image.to(device)
             target_ids = target.squeeze(0).tolist()
             
+            # Extract spatial features and predict initial counts
             encoder_features = encoder(image)
+            current_counts = wscm(encoder_features) # NEW: Get global count
+
+            # We squeeze it to remove the batch dimension so it's just a 1D list
+            initial_counts_for_plot = current_counts.clone().detach().cpu().squeeze(0)
+            
             b, c, h, w = encoder_features.size()
             encoder_features = encoder_features.view(b, c, -1).permute(0, 2, 1)
             
@@ -130,20 +154,35 @@ def run_pulse_check(checkpoint_path, num_samples=100):
             predicted_ids = []
             saved_alphas = []
 
-
             for _ in range(150):
-                # Pass and receive coverage
+                # NEW: Pass current_counts to the decoder
                 predictions, decoder_hidden, alpha, coverage = decoder(
-                    current_token, decoder_hidden, encoder_features, coverage
+                    current_token, decoder_hidden, encoder_features, coverage, current_counts
                 )
                 
                 saved_alphas.append(alpha.detach().cpu())
 
+                # Greedy decode: take the most likely token
                 top_token = predictions.argmax(1).item()
                 predicted_ids.append(top_token)
                 
                 if top_token == 1: # <EOS>
                     break
+                    
+                # --- NEW: DYNAMIC SUBTRACTION LOGIC ---
+                pred_tensor = torch.tensor([top_token]).to(device)
+                
+                # 1. Create a one-hot vector of the predicted token
+                one_hot_chosen = F.one_hot(pred_tensor, num_classes=decoder.vocab_size).float()
+                
+                # 2. Mask out special tokens (0, 1, 2, 3)
+                mask = (pred_tensor > 3).float().unsqueeze(1)
+                one_hot_chosen = one_hot_chosen * mask
+                
+                # 3. Subtract from current counts and apply ReLU
+                current_counts = F.relu(current_counts - one_hot_chosen)
+                # --------------------------------------
+                
                 current_token = torch.tensor([top_token]).to(device)
                 
             # --- TRANSLATE TO STRINGS ---
@@ -161,12 +200,13 @@ def run_pulse_check(checkpoint_path, num_samples=100):
                 print("-" * 50)
 
                 token_list = pred_str.split() 
-                plot_attention_maps(image, token_list, saved_alphas, h, w)
+                plot_attention_maps(image, token_list, saved_alphas, h, w,initial_counts=initial_counts_for_plot, 
+                    idx_to_token=idx_to_token)
                 
     print(f"\nPulse Check Complete!")
     print(f"Exact Match Rate (Greedy): {(exact_matches/num_samples)*100:.1f}%")
 
 if __name__ == '__main__':
-    
-    ckpt_path = os.path.join("checkpoints", "hmer_checkpoint_epoch_9.pth")
-    run_pulse_check(ckpt_path, num_samples=100)
+    # Make sure to point this to your new CAN checkpoint!
+    ckpt_path = os.path.join("checkpoints", "hmer_can_checkpoint_epoch_12.pth") 
+    run_pulse_check(ckpt_path, num_samples=100) # Set to 10 for a quick test

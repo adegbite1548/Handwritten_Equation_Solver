@@ -80,9 +80,9 @@ decoder = decoder.to(device)
 
 # --- 2. Optimizer and Loss ---
 ENCODER_LR = 1e-5  # Protect the pre-trained DenseNet
-DECODER_LR = 5e-4  # Fast learning for the Decoder
+DECODER_LR = 5e-4  # Fast learning for the Decoder, change back to 5e-4
 
-# We deleted the scheduler completely.
+
 optimizer = torch.optim.Adam([
     {'params': encoder.parameters(), 'lr': ENCODER_LR},
     {'params': decoder.parameters(), 'lr': DECODER_LR}
@@ -95,7 +95,12 @@ criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 
 
 # --- 3. The Epoch Loop ---
-EPOCHS = 10
+
+EPOCHS = 12 
+
+checkpoint_path = "checkpoints/hmer_checkpoint_epoch_10.pth"
+
+
 
 print(f"Training on {device}...")
 print(f"Total batches per epoch: {len(train_loader)}")
@@ -109,7 +114,7 @@ for epoch in range(EPOCHS):
     # Decay teacher forcing. 
     # Starts at 1.0, drops by 0.1 each epoch, stops dropping at 0.2
     current_tf_ratio = max(0.2, 1.0 - (epoch * 0.1)) 
-    print(f"Epoch {epoch+1} starting with Teacher Forcing Ratio: {current_tf_ratio:.1f}")
+    print(f"Epoch {epoch+1} starting with Teacher Forcing Ratio: {current_tf_ratio:.1f}") 
     
     for batch_idx, (images, targets) in enumerate(train_loader):
         images = images.to(device)
@@ -127,7 +132,7 @@ for epoch in range(EPOCHS):
     # --- End of Epoch Processing ---
     # Calculate the average loss across all batches
     avg_epoch_loss = epoch_loss / len(train_loader)
-    print(f"==== Epoch [{epoch+1}/{EPOCHS}] Completed | Average Epoch Loss: {avg_epoch_loss:.4f} ====")
+    print(f"==== Epoch [{epoch+1}/{EPOCHS}] Completed | Average Epoch Loss: {avg_epoch_loss:.4f} ====") 
 
     
     save_dir = "checkpoints"
@@ -137,7 +142,7 @@ for epoch in range(EPOCHS):
     os.makedirs(save_dir, exist_ok=True)
     
     # Create the full file path (e.g., "checkpoints/hmer_checkpoint_epoch_1.pth")
-    file_name = f'hmer_checkpoint_epoch_{epoch+1}.pth'
+    file_name = f'hmer_checkpoint_epoch_{epoch+1}.pth' 
     checkpoint_path = os.path.join(save_dir, file_name)
     
     # --- Checkpoint Saving ---
@@ -152,6 +157,6 @@ for epoch in range(EPOCHS):
     
     # 4. Save to the new path
     torch.save(checkpoint, checkpoint_path)
-    print(f"Saved checkpoint for epoch {epoch+1} at: {checkpoint_path}\n")
+    print(f"Saved checkpoint for epoch {epoch+1} at: {checkpoint_path}\n") 
 
 print("Training Complete!")
