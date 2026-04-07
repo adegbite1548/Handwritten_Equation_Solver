@@ -21,6 +21,8 @@ def train_step(images, targets, encoder, decoder, optimizer, criterion, teacher_
     
     encoder_features = encoder(images)
     b, c, h, w = encoder_features.size()
+
+
     encoder_features = encoder_features.view(b, c, -1).permute(0, 2, 1)
     
     decoder_hidden = torch.zeros(batch_size, decoder.decoder_dim).to(images.device)
@@ -53,7 +55,7 @@ def train_step(images, targets, encoder, decoder, optimizer, criterion, teacher_
             loss += step_loss
             valid_steps += 1
         
-    # Divide by the actual number of valid steps, not the raw sequence length!
+    # Divide by the actual number of valid steps, not the raw sequence length
     # This prevents the gradients from vanishing on shorter equations.
     average_loss = loss / valid_steps if valid_steps > 0 else loss
     
@@ -138,7 +140,6 @@ for epoch in range(EPOCHS):
     save_dir = "checkpoints"
     
     
-    # exist_ok=True means it won't crash if the folder already exists from a previous run
     os.makedirs(save_dir, exist_ok=True)
     
     # Create the full file path (e.g., "checkpoints/hmer_checkpoint_epoch_1.pth")

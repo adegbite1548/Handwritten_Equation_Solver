@@ -45,11 +45,10 @@ full_synth_dataset = MathDataset(
 )
 
 # --- 2. Create the Synthetic Subset ---
-# Let's dynamically set the subset size to match the size of the real dataset 
+# We dynamically set the subset size to match the size of the real dataset 
 # to keep the training perfectly balanced (1:1 ratio).
 subset_size = len(real_dataset)
 
-# Safety check: ensure we don't ask for more synthetic data than actually exists
 if subset_size > len(full_synth_dataset):
     subset_size = len(full_synth_dataset)
 

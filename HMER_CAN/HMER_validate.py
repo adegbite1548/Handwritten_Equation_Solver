@@ -16,7 +16,6 @@ import torch.nn.functional as F
 
 def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h, feature_w,initial_counts=None, idx_to_token=None):
     # 1. Convert the PyTorch image back to a format Matplotlib can display
-    # Un-normalize it (approximate for quick viewing)
     image = image_tensor.cpu().squeeze(0).permute(1, 2, 0).numpy()
     image = np.clip((image * [0.229, 0.224, 0.225]) + [0.485, 0.456, 0.406], 0, 1)
     
@@ -37,6 +36,9 @@ def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h,
             if idx > 3 and count >= 0.5: # Skip special tokens (0,1,2,3)
                 symbol = idx_to_token.get(idx, '<UNK>')
                 inventory.append(f"{symbol}: {round(count)}")
+
+
+
         
         inventory_str = "Predicted WSCM Inventory | " + ", ".join(inventory)
         if not inventory:
@@ -51,13 +53,13 @@ def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h,
         # alpha shape is currently [1, H*W]. We reshape it back to [H, W]
         alpha = saved_alphas[i].view(feature_h, feature_w).unsqueeze(0).unsqueeze(0)
         
-        # 4. Resize the tiny attention map to match the full original image size
+        # 4. Resize 
         alpha_resized = F.interpolate(alpha, size=(image.shape[0], image.shape[1]), mode='bilinear', align_corners=False)
         alpha_map = alpha_resized.squeeze().numpy()
         
         # 5. Draw the original image, then overlay the heatmap
         ax.imshow(image)
-        ax.imshow(alpha_map, cmap='jet', alpha=0.5) # 'jet' gives that nice blue-to-red heatmap look
+        ax.imshow(alpha_map, cmap='jet', alpha=0.5) 
         
         ax.set_title(f"Predicting: {predicted_tokens[i]}")
         ax.axis('off')
@@ -98,11 +100,11 @@ def run_pulse_check(checkpoint_path, num_samples=100):
     # Load the weights
     checkpoint = torch.load(checkpoint_path, map_location=device)
     encoder.load_state_dict(checkpoint['encoder_state_dict'])
-    wscm.load_state_dict(checkpoint['wscm_state_dict']) # NEW
+    wscm.load_state_dict(checkpoint['wscm_state_dict']) 
     decoder.load_state_dict(checkpoint['decoder_state_dict'])
     
     encoder.eval()
-    wscm.eval() # NEW
+    wscm.eval() 
     decoder.eval()
 
     # --- 4. Build the Pulse Check Loader ---
@@ -155,7 +157,7 @@ def run_pulse_check(checkpoint_path, num_samples=100):
             saved_alphas = []
 
             for _ in range(150):
-                # NEW: Pass current_counts to the decoder
+                # Now we also pass current_counts to the decoder
                 predictions, decoder_hidden, alpha, coverage = decoder(
                     current_token, decoder_hidden, encoder_features, coverage, current_counts
                 )
@@ -169,7 +171,7 @@ def run_pulse_check(checkpoint_path, num_samples=100):
                 if top_token == 1: # <EOS>
                     break
                     
-                # --- NEW: DYNAMIC SUBTRACTION LOGIC ---
+                # DYNAMIC SUBTRACTION LOGIC 
                 pred_tensor = torch.tensor([top_token]).to(device)
                 
                 # 1. Create a one-hot vector of the predicted token
@@ -181,11 +183,11 @@ def run_pulse_check(checkpoint_path, num_samples=100):
                 
                 # 3. Subtract from current counts and apply ReLU
                 current_counts = F.relu(current_counts - one_hot_chosen)
-                # --------------------------------------
+                
                 
                 current_token = torch.tensor([top_token]).to(device)
                 
-            # --- TRANSLATE TO STRINGS ---
+            # Translation to Strings
             target_str = translate_tokens(target_ids, idx_to_token)
             pred_str = translate_tokens(predicted_ids, idx_to_token)
             
@@ -207,6 +209,5 @@ def run_pulse_check(checkpoint_path, num_samples=100):
     print(f"Exact Match Rate (Greedy): {(exact_matches/num_samples)*100:.1f}%")
 
 if __name__ == '__main__':
-    # Make sure to point this to your new CAN checkpoint!
-    ckpt_path = os.path.join("checkpoints", "hmer_can_checkpoint_epoch_12.pth") 
-    run_pulse_check(ckpt_path, num_samples=100) # Set to 10 for a quick test
+    ckpt_path = os.path.join("checkpoints_CAN", "hmer_can_checkpoint_epoch_9.pth") 
+    run_pulse_check(ckpt_path, num_samples=100) 

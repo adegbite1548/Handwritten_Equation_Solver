@@ -19,8 +19,8 @@ class DenseNetEncoder(nn.Module):
         self.out_channels = 1024 
 
     def forward(self, x):
-        # Input: [Batch, 3, H, W] (RGB Images)
-        # Output: [Batch, 1024, H', W'] (Feature Maps)
+        # Input: [Batch, d=3, h, w] (RGB Images)
+        # Output: [Batch, d=1024, H, W] (Feature Maps)
         features = self.features(x)
         
         # We return the raw spatial features so the Attention mechanism 

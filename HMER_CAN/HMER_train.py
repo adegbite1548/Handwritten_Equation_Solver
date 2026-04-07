@@ -62,12 +62,12 @@ def train_step(images, targets, encoder, wscm, decoder, optimizer, ce_criterion,
         else:
             decoder_input = predictions.argmax(1).detach() 
             
-        # Pass the *current* ticking-down counts to the decoder
+        # Pass the current ticking-down counts to the decoder
         predictions, decoder_hidden, alpha, coverage = decoder(
             decoder_input, decoder_hidden, encoder_features_seq, coverage, current_counts
         )
         
-        # Determine which token to subtract based on your training mode
+        # Determine which token to subtract based on the training mode
         if use_teacher_forcing:
             chosen_tokens = targets[:, t]
         else:
@@ -84,7 +84,7 @@ def train_step(images, targets, encoder, wscm, decoder, optimizer, ce_criterion,
         
         # 3. Subtract from current counts and use ReLU to prevent negative counts
         current_counts = F.relu(current_counts - one_hot_chosen)
-        ##
+        ## j
         
         correct_token = targets[:, t]
         
@@ -107,7 +107,7 @@ def train_step(images, targets, encoder, wscm, decoder, optimizer, ce_criterion,
 
 
 
-# --- 1. Model Initialization ---
+# 1. Model Initialization
 VOCAB_SIZE = 231     
 EMBED_DIM = 256       
 DECODER_DIM = 512     
@@ -120,8 +120,7 @@ encoder = DenseNetEncoder().to(device)
 wscm = WSCM(encoder_dim=ENCODER_DIM, vocab_size=VOCAB_SIZE).to(device)
 decoder = WAPDecoderCAN(embed_dim=EMBED_DIM, decoder_dim=DECODER_DIM, vocab_size=VOCAB_SIZE).to(device)
 
-# --- 2. Optimizer and Loss ---
-# --- 1. Model Initialization ---
+
 VOCAB_SIZE = 231     
 EMBED_DIM = 256       
 DECODER_DIM = 512     
@@ -132,7 +131,7 @@ encoder = DenseNetEncoder().to(device)
 wscm = WSCM(encoder_dim=ENCODER_DIM, vocab_size=VOCAB_SIZE).to(device)
 decoder = WAPDecoderCAN(embed_dim=EMBED_DIM, decoder_dim=DECODER_DIM, vocab_size=VOCAB_SIZE).to(device)
 
-# --- 2. Optimizer and Loss ---
+# 2. Optimizer and Loss 
 ENCODER_LR = 1e-5  # Protect the pre-trained DenseNet
 DECODER_LR = 5e-4  # Fast learning for the Decoder
 COUNTER_LR = 5e-4
@@ -149,7 +148,7 @@ PAD_IDX = 2
 ce_criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 count_criterion = nn.MSELoss()
 
-# --- 3. Checkpoint Loading ---
+# 3. Checkpoint Loading 
 checkpoint_path = "checkpoints_CAN/hmer_checkpoint_WAP_baseline.pth"
 
 
@@ -163,11 +162,10 @@ if os.path.exists(checkpoint_path):
     # 2. Extract the old decoder weights
     old_decoder_state = checkpoint['decoder_state_dict']
     
-    # 3. FILTER LOGIC: Create a new dictionary without any 'gru' keys
+    # 3. This creates a new dictionary without any 'gru' keys
     filtered_decoder_state = {k: v for k, v in old_decoder_state.items() if 'gru' not in k}
     
     # 4. Load the filtered dictionary. 
-    # strict=False now works perfectly because the 'gru' keys are entirely missing from the dict
     decoder.load_state_dict(filtered_decoder_state, strict=False)
     
     print("Baseline weights loaded! WSCM and updated GRU are starting fresh.")
@@ -211,7 +209,7 @@ for epoch in range(EPOCHS):
             print(f"Epoch [{epoch+1}/{EPOCHS}] | Batch [{batch_idx}/{len(train_loader)}] "
                   f"| Total: {total_batch_loss:.4f} (Seq: {seq_loss:.4f}, Count: {count_loss:.4f})")
             
-    # --- End of Epoch Processing ---
+    # End of Epoch Processing
     avg_total_loss = epoch_total_loss / len(train_loader)
     avg_seq_loss = epoch_seq_loss / len(train_loader)
     avg_count_loss = epoch_count_loss / len(train_loader)
@@ -225,7 +223,7 @@ for epoch in range(EPOCHS):
     file_name = f'hmer_can_checkpoint_epoch_{epoch+1}.pth' 
     save_path = os.path.join(save_dir, file_name)
     
-    # --- Checkpoint Saving ---
+    # Checkpoint Saving
     checkpoint_dict = {
         'epoch': epoch + 1,
         'encoder_state_dict': encoder.state_dict(),

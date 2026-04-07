@@ -20,8 +20,8 @@ class MathEngine:
         # Standardize remaining inline Leibniz formatting (for integrals and derivatives)
         clean_str = re.sub(r'd\s+([a-zA-Z])', r'd\1', clean_str)
 
-        # Convert floating | x | pairs into explicit \left| x \right| absolute values
-        clean_str = re.sub(r'\|\s*(.*?)\s*\|', r'\\left|\1\\right|', clean_str)
+        # Matrix sanitization
+        clean_str = re.sub(r'm\s+a\s+t\s+r\s+i\s+x', 'matrix', clean_str)
         
         return clean_str.strip()
     
@@ -54,7 +54,7 @@ class MathEngine:
 
     def solve_equation(self, sympy_obj):
         if sympy_obj is None:
-            return "Cannot solve: Invalid parsing."
+            return "\\text{Cannot solve: Invalid parsing.}"
 
        
         # If a list somehow makes it here, extract the first math element

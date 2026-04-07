@@ -41,7 +41,7 @@ def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h,
         
         # 5. Draw the original image, then overlay the heatmap
         ax.imshow(image)
-        ax.imshow(alpha_map, cmap='jet', alpha=0.5) # 'jet' gives that nice blue-to-red heatmap look
+        ax.imshow(alpha_map, cmap='jet', alpha=0.5) 
         
         ax.set_title(f"Predicting: {predicted_tokens[i]}")
         ax.axis('off')

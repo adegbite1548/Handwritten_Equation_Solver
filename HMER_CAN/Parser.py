@@ -57,7 +57,7 @@ class WAPDecoderCAN(nn.Module):
         # Input to GRU = Embedding of previous char + Context Vector from Attention
         self.gru = nn.GRUCell(embed_dim + encoder_dim + vocab_size, decoder_dim)
         
-        # 4. Deep Output Layer (optional but recommended for better results)
+        # 4. Deep Output Layer (optional but used for better results)
         self.fc = nn.Linear(decoder_dim, vocab_size)
         self.dropout = nn.Dropout(dropout)
 

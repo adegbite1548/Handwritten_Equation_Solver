@@ -20,12 +20,12 @@ class MathDataset(Dataset):
         self.unk_id = self.vocab.get('<UNK>', 3) # Fallback for unknown symbols
 
     def __len__(self):
-        # Returns the total number of equations in your CSV
+        # Returns the total number of equations in the CSV
         return len(self.data_frame)
 
     def __getitem__(self, idx):
         # --- 1. Load the Image ---
-        img_name = self.data_frame.iloc[idx, 0] # Assuming Col 0 is 'image_name'
+        img_name = self.data_frame.iloc[idx, 0] # Col 0 is 'image_name'
         img_path = os.path.join(self.img_dir, img_name)
         
         image = Image.open(img_path).convert('RGB')
@@ -33,10 +33,10 @@ class MathDataset(Dataset):
             image = self.transform(image)
 
         # --- 2. Load and Tokenize the Label ---
-        latex_string = str(self.data_frame.iloc[idx, 1]) # Assuming Col 1 is 'label'
+        latex_string = str(self.data_frame.iloc[idx, 1]) # Col 1 is 'label'
         
         
-        # 2. Use RegEx to intelligently slice commands vs. single characters
+        # 2. Tokenization
         raw_tokens = re.findall(r"\\[a-zA-Z]+|\\[^a-zA-Z]|.", latex_string)
         
         # 3. Map each string symbol to its integer ID

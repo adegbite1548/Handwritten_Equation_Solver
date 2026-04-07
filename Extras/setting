@@ -6,5 +6,8 @@ conda env remove -n torchcuda
 
 cd Documents/3rd_Year/cs310/Handwritten_Equation_solver/
 
+1.4384- minimum validation loss for WAP
+
+0.9658 is minimum validation loss for CAN. Note also that the count loss was always around 0.02. 
 
 DenseNet-121

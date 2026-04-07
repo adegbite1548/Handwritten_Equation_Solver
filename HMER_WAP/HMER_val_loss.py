@@ -3,25 +3,25 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import torch
 import torch.nn as nn
 import json
+import matplotlib.pyplot as plt  # Added for plotting
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from torch.nn.utils.rnn import pad_sequence
 
-# Import your custom modules
 from MathDataset import MathDataset
 from Watcher import DenseNetEncoder
 from Parser import WAPDecoder
 
 # --- 1. Configuration & Setup ---
-CHECKPOINT_PATH = "checkpoints/hmer_checkpoint_epoch_12.pth"
-VAL_CSV = "../../mathwriting_dataset_images/valid/data/data.csv" # Update to your val CSV
-VAL_IMG_DIR = "../../mathwriting_dataset_images/valid"           # Update to your val images
+VAL_CSV = "../../mathwriting_dataset_images/valid/data/data.csv" 
+VAL_IMG_DIR = "../../mathwriting_dataset_images/valid"           
 
 VOCAB_SIZE = 231     
 EMBED_DIM = 256       
 DECODER_DIM = 512     
 ENCODER_DIM = 1024
 PAD_IDX = 2 
+NUM_EPOCHS = 12  # Setup loop variable
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Evaluating on device: {device}")
@@ -53,31 +53,17 @@ val_dataset = MathDataset(
 val_loader = DataLoader(
     val_dataset, 
     batch_size=16, 
-    shuffle=False, # No need to shuffle for validation
+    shuffle=False, 
     collate_fn=pad_collate_fn
 )
 print(f"Total validation images: {len(val_dataset)}")
 
-# --- 3. Model Initialization ---
+# --- 3. Model & Loss Initialization (Done ONCE) ---
 encoder = DenseNetEncoder().to(device)
 decoder = WAPDecoder(embed_dim=EMBED_DIM, decoder_dim=DECODER_DIM, vocab_size=VOCAB_SIZE).to(device)
 criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 
-# --- 4. Load Checkpoint ---
-if os.path.exists(CHECKPOINT_PATH):
-    print(f"Loading checkpoint: {CHECKPOINT_PATH}")
-    checkpoint = torch.load(CHECKPOINT_PATH, map_location=device)
-    encoder.load_state_dict(checkpoint['encoder_state_dict'])
-    decoder.load_state_dict(checkpoint['decoder_state_dict'])
-    print("Checkpoint loaded successfully.")
-else:
-    raise FileNotFoundError(f"Could not find {CHECKPOINT_PATH}. Check the path.")
-
-# Set models to evaluation mode (critical to disable Dropout/BatchNorm during inference)
-encoder.eval()
-decoder.eval()
-
-# --- 5. Validation Step Function ---
+# --- 4. Validation Step Function ---
 def val_step(images, targets, encoder, decoder, criterion):
     batch_size = images.size(0)
     seq_len = targets.size(1)
@@ -110,28 +96,95 @@ def val_step(images, targets, encoder, decoder, criterion):
                 loss += step_loss
                 valid_steps += 1
             
-            # Autoregressive decoding: strictly use own predictions
             decoder_input = predictions.argmax(1).detach()
             
     average_loss = loss / valid_steps if valid_steps > 0 else loss
     return average_loss.item()
 
-# --- 6. Main Evaluation Loop ---
-print("\nStarting Validation...")
-val_loss_total = 0
 
-with torch.no_grad():
-    for batch_idx, (images, targets) in enumerate(val_loader):
-        images = images.to(device)
-        targets = targets.to(device)
-        
-        batch_loss = val_step(images, targets, encoder, decoder, criterion)
-        val_loss_total += batch_loss
-        
-        if batch_idx % 10 == 0:
-            print(f"Validating... Batch [{batch_idx}/{len(val_loader)}] | Loss: {batch_loss:.4f}")
+# --- 5. Main Evaluation Loop Over Epochs ---
+print("\nStarting Multi-Epoch Validation...")
+epoch_losses = []      # To store losses for plotting
+evaluated_epochs = []  # To keep track of which epochs were successfully loaded
 
-avg_val_loss = val_loss_total / len(val_loader)
-print("\n" + "="*50)
-print(f"FINAL VALIDATION LOSS FOR {CHECKPOINT_PATH}: {avg_val_loss:.4f}")
-print("="*50 + "\n")
+for epoch in range(1, NUM_EPOCHS + 1):
+    checkpoint_path = f"checkpoints/hmer_checkpoint_epoch_{epoch}.pth"
+    
+    if os.path.exists(checkpoint_path):
+        print(f"\n--- Loading checkpoint: {checkpoint_path} ---")
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        encoder.load_state_dict(checkpoint['encoder_state_dict'])
+        decoder.load_state_dict(checkpoint['decoder_state_dict'])
+        
+        # Set models to evaluation mode 
+        encoder.eval()
+        decoder.eval()
+        
+        val_loss_total = 0
+        
+        with torch.no_grad():
+            for batch_idx, (images, targets) in enumerate(val_loader):
+                images = images.to(device)
+                targets = targets.to(device)
+                
+                batch_loss = val_step(images, targets, encoder, decoder, criterion)
+                val_loss_total += batch_loss
+                
+                if batch_idx % 20 == 0: 
+                    print(f"Epoch {epoch} | Batch [{batch_idx}/{len(val_loader)}] | Loss: {batch_loss:.4f}")
+
+        avg_val_loss = val_loss_total / len(val_loader)
+        epoch_losses.append(avg_val_loss)
+        evaluated_epochs.append(epoch)
+        print(f"FINAL VALIDATION LOSS FOR EPOCH {epoch}: {avg_val_loss:.4f}")
+        
+    else:
+        print(f"\n Checkpoint {checkpoint_path} not found. Skipping.")
+
+# --- 6. Plotting the Results ---
+if len(evaluated_epochs) > 0:
+    print("\nGenerating Validation Loss Plot...")
+    
+    # Define the teacher forcing ratios for each epoch
+    teacher_forcing_ratios = {
+        1: 1.0, 2: 0.9, 3: 0.8, 4: 0.7, 5: 0.6, 
+        6: 0.5, 7: 0.4, 8: 0.3, 9: 0.2, 10: 0.2, 
+        11: 0.2, 12: 0.2
+    }
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(evaluated_epochs, epoch_losses, marker='o', linestyle='-', color='b', label='Validation Loss')
+    
+    # Annotate each point with its Teacher Forcing Ratio
+    for epoch, loss in zip(evaluated_epochs, epoch_losses):
+        ratio = teacher_forcing_ratios.get(epoch, "N/A")
+        plt.annotate(
+            f'TF: {ratio}',          # The text to display
+            (epoch, loss),           # The point to annotate
+            textcoords="offset points", 
+            xytext=(0, 10),          # Offset the text 10 points vertically
+            ha='center',             # Horizontally center the text
+            fontsize=9,
+            color='darkred'          # Added color to make it stand out
+        )
+    
+    # Expand the y-axis limit slightly so the top annotations don't get cut off
+    y_min, y_max = min(epoch_losses), max(epoch_losses)
+    plt.ylim(y_min - (y_max - y_min) * 0.1, y_max + (y_max - y_min) * 0.15)
+    
+    plt.title('Validation Loss vs. Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Average Validation Loss')
+    plt.xticks(evaluated_epochs)  
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+    
+    # Save the plot to a file
+    plot_filename = "validation_loss_plot.png"
+    plt.savefig(plot_filename)
+    print(f"Plot saved successfully as '{plot_filename}'")
+    
+    # Display the plot
+    plt.show()
+else:
+    print("No checkpoints were successfully evaluated. Cannot generate plot.")

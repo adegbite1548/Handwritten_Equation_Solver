@@ -20,7 +20,7 @@ transform = transforms.Compose([
 with open('vocab.json', 'r') as f:
     my_vocab_dictionary = json.load(f)
 
-# --- 1. Load All Three Datasets ---
+# 1. Load All Three Datasets
 
 print("Loading datasets...")
 real_dataset = MathDataset(
@@ -44,12 +44,12 @@ full_synth_dataset = MathDataset(
     transform=transform
 )
 
-# --- 2. Create the Synthetic Subset ---
-# Let's dynamically set the subset size to match the size of the real dataset 
+# 2. Create the Synthetic Subset
+# We will dynamically set the subset size to match the size of the real dataset 
 # to keep the training perfectly balanced (1:1 ratio).
 subset_size = len(real_dataset)
 
-# Safety check: ensure we don't ask for more synthetic data than actually exists
+# This is just a safety check to ensure we don't ask for more synthetic data than actually exists
 if subset_size > len(full_synth_dataset):
     subset_size = len(full_synth_dataset)
 
@@ -60,11 +60,11 @@ random_indices = torch.randperm(len(full_synth_dataset))[:subset_size].tolist()
 synth_subset = Subset(full_synth_dataset, random_indices)
 print(f"Sampled {len(synth_subset)} images from the Synthetic dataset.")
 
-# --- 3. Concatenate Everything ---
+# 3. Concatenate Everything 
 combined_dataset = ConcatDataset([real_dataset, symbol_dataset, synth_subset])
 print(f"Total training images: {len(combined_dataset)}")
 
-# --- 4. Pass to the DataLoader ---
+# 4. Pass to the DataLoader 
 train_loader = DataLoader(
     combined_dataset, 
     batch_size=16, 

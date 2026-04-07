@@ -19,9 +19,9 @@ test_cases_sanitize = {
         
         "Long Equation": "s i n ^ 2 x + c s c x + l n x - s i n h x = 5 + t a n h x + t a n x",
 
-        "1st order ODE" : "2\\frac{d y}{d x} + y ( x ) = 0",
+        "Leibniz symbols" : "2\\frac{d y}{d x} + y ( x ) = 0",
 
-        "2nd order ODE" : "2\\frac{d ^ { 2 } y}{d x ^ 2} + \\frac{d y}{d x} + 2 = 0"
+        
     }
 
 print(f"{'Test Case':<20} | {'Raw Input':<15} | {'Sanitized Output'}")
@@ -34,13 +34,15 @@ for name, raw in test_cases_sanitize.items():
 
 test_cases_Solver = {
 
-    "Regular Equation": "x + 2 = 5",
+    "Regular Equation": "x + 22 = 5",
 
     "Summation Problem": "2 \\sum _ { i = 1 } ^ 10 2 i",
 
     "Summation with letter": "\\sum_{ i = 1} ^ n 2 ^ i",
 
     "Basic Arithmetic" : "2 + 2",
+
+    "Basic Arithmetic 2" : " x + 20 = 22",
 
     "Quadratic Equation": "x ^ 2 + 2 x + 3",
 
@@ -54,9 +56,11 @@ test_cases_Solver = {
 
     "Summation and Product Problem": "2 \\sum _ { i = 1 } ^ 10 2 i - \\prod _ { i = 1 } ^ 10 2 ^ i",
 
-    "Definite Integral": "\\int _ { 0 } ^ { 2 \pi } s i n x",
+    "Definite Integral": "\\int _ { 0 } ^ { 2 \\pi } s i n x",
 
     "Indefinite Integral" : "\\int s e c x",
+
+    "Hard derivative" : "\\frac { d } { d x } ( \\ frac { e ^ { - 2 x } c o s ( \\pi x ) }{ x ^ { 2 } + 1 } )"
 
 
 }

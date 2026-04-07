@@ -30,7 +30,7 @@ class Attention(nn.Module):
         
         alpha = self.softmax(energy) # [Batch, Num_Pixels]
         
-        # NEW: Update the running coverage vector for the next time step
+       
         new_coverage = coverage + alpha
         
         # 3. Calculate Context Vector (Weighted sum of image features)
@@ -57,7 +57,7 @@ class WAPDecoder(nn.Module):
         # Input to GRU = Embedding of previous char + Context Vector from Attention
         self.gru = nn.GRUCell(embed_dim + encoder_dim, decoder_dim)
         
-        # 4. Deep Output Layer (optional but recommended for better results)
+        # 4. Deep Output Layer 
         self.fc = nn.Linear(decoder_dim, vocab_size)
         self.dropout = nn.Dropout(dropout)
 
