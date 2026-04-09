@@ -58,7 +58,7 @@ val_loader = DataLoader(
 )
 print(f"Total validation images: {len(val_dataset)}")
 
-# --- 3. Model & Loss Initialization (Done ONCE) ---
+# --- 3. Model & Loss Initialization ---
 encoder = DenseNetEncoder().to(device)
 decoder = WAPDecoder(embed_dim=EMBED_DIM, decoder_dim=DECODER_DIM, vocab_size=VOCAB_SIZE).to(device)
 criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
@@ -159,10 +159,10 @@ if len(evaluated_epochs) > 0:
     for epoch, loss in zip(evaluated_epochs, epoch_losses):
         ratio = teacher_forcing_ratios.get(epoch, "N/A")
         plt.annotate(
-            f'TF: {ratio}',          # The text to display
-            (epoch, loss),           # The point to annotate
+            f'TF: {ratio}',          
+            (epoch, loss),           
             textcoords="offset points", 
-            xytext=(0, 10),          # Offset the text 10 points vertically
+            xytext=(0, 10),          
             ha='center',             # Horizontally center the text
             fontsize=9,
             color='darkred'          # Added color to make it stand out

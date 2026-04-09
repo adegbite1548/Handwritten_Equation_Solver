@@ -11,8 +11,7 @@ from Watcher import DenseNetEncoder
 from Parser import WAPDecoder
 
 # --- 1. Configuration & Setup ---
-# Update this path to your best standard WAP checkpoint
-CHECKPOINT_PATH = "checkpoints/hmer_checkpoint_epoch_12.pth" 
+CHECKPOINT_PATH = "checkpoints/hmer_checkpoint_epoch_9.pth" 
 TEST_CSV = "../../mathwriting_dataset_images/test/data/data.csv" 
 TEST_IMG_DIR = "../../mathwriting_dataset_images/test"           
 
@@ -128,18 +127,20 @@ with torch.no_grad():
         targets = targets.to(device)
         batch_size = images.size(0)
         
-        # 1. Encode
+        
         encoder_features = encoder(images)
         
-        # 2. Prepare Decoder
+     
         b, c, h, w = encoder_features.size()
+
         encoder_features_seq = encoder_features.view(b, c, -1).permute(0, 2, 1)
         
         decoder_hidden = torch.zeros(batch_size, decoder.decoder_dim).to(device)
+
         num_pixels = encoder_features_seq.size(1)
         coverage = torch.zeros(batch_size, num_pixels).to(device)
         
-        # Start with <SOS> for all items in batch
+        
         decoder_input = torch.full((batch_size,), SOS_IDX, dtype=torch.long, device=device)
         
         batch_predictions = [[] for _ in range(batch_size)]

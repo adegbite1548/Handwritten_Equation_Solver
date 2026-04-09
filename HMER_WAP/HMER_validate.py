@@ -3,6 +3,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import torch
 import json
+import math
 import random
 from torch.utils.data import DataLoader, Subset
 import torchvision.transforms as transforms
@@ -14,38 +15,43 @@ import numpy as np
 import torch.nn.functional as F 
 
 def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h, feature_w):
-    # 1. Convert the PyTorch image back to a format Matplotlib can display
-    # Un-normalize it (approximate for quick viewing)
+    """
+    Plots a dynamic grid of attention heatmaps for standard WAP models.
+    """
+   
     image = image_tensor.cpu().squeeze(0).permute(1, 2, 0).numpy()
     image = np.clip((image * [0.229, 0.224, 0.225]) + [0.485, 0.456, 0.406], 0, 1)
     
     num_tokens = len(predicted_tokens)
     
-    # 2. Set up a grid of subplots (e.g., 2 rows, X columns depending on length)
-    cols = 1 # Just 1 image per row so it spans the whole screen width
-    rows = num_tokens
+    cols = 3 
+    rows = math.ceil(num_tokens / cols)
 
-    # Make the figure very wide (e.g., 12 inches) and give each row 2 inches of height
-    fig = plt.figure(figsize=(12, 2 * rows))
+    fig = plt.figure(figsize=(12, 3 * rows))
     
     for i in range(num_tokens):
         ax = fig.add_subplot(rows, cols, i + 1)
         
-        # 3. Get the attention weights for this specific character
-        # alpha shape is currently [1, H*W]. We reshape it back to [H, W]
+    
         alpha = saved_alphas[i].view(feature_h, feature_w).unsqueeze(0).unsqueeze(0)
         
-        # 4. Resize the tiny attention map to match the full original image size
-        alpha_resized = F.interpolate(alpha, size=(image.shape[0], image.shape[1]), mode='bilinear', align_corners=False)
+
+        alpha_resized = F.interpolate(
+            alpha, 
+            size=(image.shape[0], image.shape[1]), 
+            mode='bilinear', 
+            align_corners=False
+        )
         alpha_map = alpha_resized.squeeze().numpy()
         
-        # 5. Draw the original image, then overlay the heatmap
+    
         ax.imshow(image)
         ax.imshow(alpha_map, cmap='jet', alpha=0.5) 
         
-        ax.set_title(f"Predicting: {predicted_tokens[i]}")
+        ax.set_title(f"Predicting: {predicted_tokens[i]}", fontsize=14, fontweight='bold')
         ax.axis('off')
         
+   
     plt.tight_layout()
     plt.show()
 
@@ -117,6 +123,7 @@ def run_pulse_check(checkpoint_path, num_samples=100):
             target_ids = target.squeeze(0).tolist()
             
             encoder_features = encoder(image)
+
             b, c, h, w = encoder_features.size()
             encoder_features = encoder_features.view(b, c, -1).permute(0, 2, 1)
             
@@ -132,7 +139,7 @@ def run_pulse_check(checkpoint_path, num_samples=100):
 
 
             for _ in range(150):
-                # Pass and receive coverage
+                
                 predictions, decoder_hidden, alpha, coverage = decoder(
                     current_token, decoder_hidden, encoder_features, coverage
                 )
@@ -161,6 +168,7 @@ def run_pulse_check(checkpoint_path, num_samples=100):
                 print("-" * 50)
 
                 token_list = pred_str.split() 
+                
                 plot_attention_maps(image, token_list, saved_alphas, h, w)
                 
     print(f"\nPulse Check Complete!")

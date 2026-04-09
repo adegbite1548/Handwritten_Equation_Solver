@@ -131,7 +131,7 @@ for epoch in range(EPOCHS):
         if batch_idx % 50 == 0:
             print(f"Epoch [{epoch+1}/{EPOCHS}] | Batch [{batch_idx}/{len(train_loader)}] | Batch Loss: {batch_loss:.4f}")
             
-    # --- End of Epoch Processing ---
+    
     # Calculate the average loss across all batches
     avg_epoch_loss = epoch_loss / len(train_loader)
     print(f"==== Epoch [{epoch+1}/{EPOCHS}] Completed | Average Epoch Loss: {avg_epoch_loss:.4f} ====") 
