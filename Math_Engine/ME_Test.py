@@ -60,7 +60,7 @@ test_cases_Solver = {
 
     "Indefinite Integral" : "\\int s e c x",
 
-    "Hard derivative" : "\\frac { d } { d x } ( \\ frac { e ^ { - 2 x } c o s ( \\pi x ) }{ x ^ { 2 } + 1 } )"
+    "Hard derivative" : "\\frac { d } { d x } ( \\frac { e ^ { - 2 x } c o s ( \\pi x ) }{ x ^ { 2 } + 1 } )"
 
 
 }

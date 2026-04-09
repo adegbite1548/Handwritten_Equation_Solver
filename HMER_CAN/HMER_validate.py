@@ -4,6 +4,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 import torch
 import json
 import random
+import math
 from torch.utils.data import DataLoader, Subset
 import torchvision.transforms as transforms
 from Watcher import DenseNetEncoder
@@ -14,60 +15,57 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn.functional as F 
 
-def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h, feature_w,initial_counts=None, idx_to_token=None):
+def plot_attention_maps(image_tensor, predicted_tokens, saved_alphas, feature_h, feature_w, initial_counts=None, idx_to_token=None):
     # 1. Convert the PyTorch image back to a format Matplotlib can display
     image = image_tensor.cpu().squeeze(0).permute(1, 2, 0).numpy()
     image = np.clip((image * [0.229, 0.224, 0.225]) + [0.485, 0.456, 0.406], 0, 1)
     
     num_tokens = len(predicted_tokens)
     
-    # 2. Set up a grid of subplots (e.g., 2 rows, X columns depending on length)
-    cols = 1 # Just 1 image per row so it spans the whole screen width
-    rows = num_tokens
+   
+    cols = 3 
+    rows = math.ceil(num_tokens / cols) # Calculates exactly how many rows you actually need
 
-    # Make the figure very wide (e.g., 12 inches) and give each row 2 inches of height
-    fig = plt.figure(figsize=(12, 2 * rows))
+    # Give each row about 3 inches of height
+    fig = plt.figure(figsize=(12, 3 * rows))
 
     if initial_counts is not None and idx_to_token is not None:
         inventory = []
-        # Loop through the vocabulary to find counts >= 0.5 (rounds to 1 or more)
         for idx, count_tensor in enumerate(initial_counts):
             count = count_tensor.item()
-            if idx > 3 and count >= 0.5: # Skip special tokens (0,1,2,3)
+            if idx > 3 and count >= 0.5:
                 symbol = idx_to_token.get(idx, '<UNK>')
                 inventory.append(f"{symbol}: {round(count)}")
 
-
-
-        
         inventory_str = "Predicted WSCM Inventory | " + ", ".join(inventory)
         if not inventory:
             inventory_str = "Predicted WSCM Inventory | [None Detected]"
             
-        fig.suptitle(inventory_str, fontsize=16, fontweight='bold', color='darkblue')
-    
+        
+
     for i in range(num_tokens):
         ax = fig.add_subplot(rows, cols, i + 1)
         
-        # 3. Get the attention weights for this specific character
-        # alpha shape is currently [1, H*W]. We reshape it back to [H, W]
         alpha = saved_alphas[i].view(feature_h, feature_w).unsqueeze(0).unsqueeze(0)
-        
-        # 4. Resize 
         alpha_resized = F.interpolate(alpha, size=(image.shape[0], image.shape[1]), mode='bilinear', align_corners=False)
         alpha_map = alpha_resized.squeeze().numpy()
         
-        # 5. Draw the original image, then overlay the heatmap
         ax.imshow(image)
         ax.imshow(alpha_map, cmap='jet', alpha=0.5) 
         
         ax.set_title(f"Predicting: {predicted_tokens[i]}")
         ax.axis('off')
         
-    plt.tight_layout()
+  
+    # Tell tight_layout to use the whole figure EXCEPT the bottom 5% (rect=[left, bottom, right, top])
+    plt.tight_layout(rect=[0, 0.05, 1, 1]) 
+    
+    # Place the text at x=50% (center), y=1% (very bottom)
+    fig.text(0.5, 0.01, inventory_str, ha='center', va='bottom', fontsize=14, fontweight='bold', color='darkblue')
+    
     plt.show()
 
-# --- 1. The Translation Function ---
+
 def translate_tokens(token_ids, idx_to_token):
     """Converts a list of integer IDs back into a readable LaTeX string"""
     words = []
@@ -82,7 +80,7 @@ def run_pulse_check(checkpoint_path, num_samples=100):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading checkpoint: {checkpoint_path}")
     
-    # --- 2. Load the Vocabulary and Reverse It ---
+   
     with open('vocab.json', 'r') as f:
         vocab_dict = json.load(f)
     idx_to_token = {v: k for k, v in vocab_dict.items()}

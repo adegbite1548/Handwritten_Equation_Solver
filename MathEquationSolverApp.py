@@ -72,18 +72,15 @@ class MathRecognizerApp:
         self.engine = MathEngine()
 
     def preprocess_image(self, pil_image):
+        
         img = np.array(pil_image)
         if len(img.shape) == 3:
             gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         else:
             gray = img
 
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        thresh = cv2.adaptiveThreshold(
-            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY, 11, 2
-        )
-
+        # Use a global threshold (OTSU finds the perfect split automatically)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         clean_img = cv2.cvtColor(thresh, cv2.COLOR_GRAY2RGB)
 
         target_h, target_w = 128, 728
@@ -156,7 +153,7 @@ class MathRecognizerApp:
         # Get the raw prediction
         latex_str = self.translate_tokens(predicted_ids)
         
-        # --- TRUE MULTIPROCESSING TIMEOUT LOGIC ---
+      
         manager = multiprocessing.Manager()
         return_dict = manager.dict()
         
@@ -165,7 +162,7 @@ class MathRecognizerApp:
         p.start()
         
         # Block the UI for exactly 10 seconds waiting for the process
-        p.join(10.0)
+        p.join(20.0)
         
         if p.is_alive():
             # If 10 seconds passed and it's still running, KILL IT.
